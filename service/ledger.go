@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"encoding/json"
 
 	"github.com/beancount-gs/script"
 	"github.com/gin-gonic/gin"
@@ -142,7 +143,7 @@ func OpenOrCreateLedger(c *gin.Context) {
 	}
 
 	t := sha1.New()
-	_, err := io.WriteString(t, loginForm.LedgerName+loginForm.Secret)
+	_, err := io.WriteString(t, loginForm.LedgerName)
 	if err != nil {
 		LedgerIsNotAllowAccess(c)
 		return
@@ -150,11 +151,22 @@ func OpenOrCreateLedger(c *gin.Context) {
 
 	ledgerId := hex.EncodeToString(t.Sum(nil))
 	userLedger := script.GetLedgerConfigByMail(loginForm.LedgerName)
+	b, err := json.Marshal(userLedger)
+	script.LogSystemInfo(ledgerId)
+	script.LogSystemInfo(string(b))
 	if userLedger != nil {
 		if ledgerId != userLedger.Id {
 			LedgerIsNotAllowAccess(c)
 			return
 		}
+
+		pass := GetPass(loginForm.Secret)
+		script.LogSystemInfo(pass)
+		if pass != userLedger.Pass {
+			LedgerIsNotAllowAccess(c)
+			return
+		}
+
 		// 账本已存在，返回账本信息
 		resultMap := make(map[string]string)
 		resultMap["ledgerId"] = ledgerId
@@ -166,7 +178,7 @@ func OpenOrCreateLedger(c *gin.Context) {
 		return
 	}
 
-	userLedger, err = createNewLedger(loginForm, ledgerId)
+	userLedger, err = createNewLedger(loginForm, ledgerId, loginForm.Secret, c)
 	if err != nil {
 		InternalError(c, err.Error())
 		return
@@ -179,6 +191,17 @@ func OpenOrCreateLedger(c *gin.Context) {
 	resultMap["currencySymbol"] = script.GetCommoditySymbol(userLedger.OperatingCurrency)
 	resultMap["createDate"] = userLedger.CreateDate
 	OK(c, resultMap)
+}
+
+// 获取密码
+func GetPass(secret string) string {
+	sct := sha1.New()
+	_, err := io.WriteString(sct, secret)
+	if err != nil {
+		return ""
+	}
+	pass := hex.EncodeToString(sct.Sum(nil))
+	return pass
 }
 
 func DeleteLedger(c *gin.Context) {
@@ -227,7 +250,7 @@ func CheckLedger(c *gin.Context) {
 	OK(c, result)
 }
 
-func createNewLedger(loginForm LoginForm, ledgerId string) (*script.Config, error) {
+func createNewLedger(loginForm LoginForm, ledgerId string, secret string, c *gin.Context) (*script.Config, error) {
 	// create new ledger
 	serverConfig := script.GetServerConfig()
 	ledgerConfigMap := script.GetLedgerConfigMap()
@@ -245,6 +268,8 @@ func createNewLedger(loginForm LoginForm, ledgerId string) (*script.Config, erro
 		openingBalances = serverConfig.OpeningBalances
 	}
 
+	pass := GetPass(secret)
+
 	ledgerConfig := script.Config{
 		Id:                ledgerId,
 		Mail:              loginForm.LedgerName,
@@ -255,6 +280,7 @@ func createNewLedger(loginForm LoginForm, ledgerId string) (*script.Config, erro
 		OpeningBalances:   openingBalances,
 		IsBak:             loginForm.IsBak,
 		CreateDate:        time.Now().Format("2006-01-02"),
+		Pass:              pass,
 	}
 	// init ledger files
 	err := initLedgerFiles(script.GetTemplateLedgerConfigDirPath(), ledgerConfig.DataPath, ledgerConfig)
