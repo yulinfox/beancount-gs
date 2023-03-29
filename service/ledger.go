@@ -200,13 +200,9 @@ func GetPass(secret string) string {
 }
 
 // 获取密码
-func GetPassForClient(c *gin.Context) string {
-	var loginForm LoginForm
-	if err := c.ShouldBindJSON(&loginForm); err != nil {
-		BadRequest(c, err.Error())
-		return "密码获取失败"
-	}
-	return GetPass(loginForm.Secret)
+func GetPassForClient(c *gin.Context) {
+	secret := c.Query("secret")
+	OK(c, GetPass(secret))
 }
 
 func DeleteLedger(c *gin.Context) {
