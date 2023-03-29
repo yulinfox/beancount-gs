@@ -151,9 +151,6 @@ func OpenOrCreateLedger(c *gin.Context) {
 
 	ledgerId := hex.EncodeToString(t.Sum(nil))
 	userLedger := script.GetLedgerConfigByMail(loginForm.LedgerName)
-	b, err := json.Marshal(userLedger)
-	script.LogSystemInfo(ledgerId)
-	script.LogSystemInfo(string(b))
 	if userLedger != nil {
 		if ledgerId != userLedger.Id {
 			LedgerIsNotAllowAccess(c)
@@ -161,7 +158,6 @@ func OpenOrCreateLedger(c *gin.Context) {
 		}
 
 		pass := GetPass(loginForm.Secret)
-		script.LogSystemInfo(pass)
 		if pass != userLedger.Pass {
 			LedgerIsNotAllowAccess(c)
 			return
@@ -202,6 +198,16 @@ func GetPass(secret string) string {
 	}
 	pass := hex.EncodeToString(sct.Sum(nil))
 	return pass
+}
+
+// 获取密码
+func GetPassForClient(c *gin.Context) string {
+	var loginForm LoginForm
+	if err := c.ShouldBindJSON(&loginForm); err != nil {
+		BadRequest(c, err.Error())
+		return "密码获取失败"
+	}
+	return GetPass(loginForm.Secret)
 }
 
 func DeleteLedger(c *gin.Context) {

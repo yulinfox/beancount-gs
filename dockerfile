@@ -35,7 +35,8 @@ RUN pip3 uninstall -y pip
 
 RUN find /app -name __pycache__ -exec rm -rf -v {} +
 
-FROM python:3.10-alpine
+# FROM python:3.10-alpine
+FROM python:slim
 
 COPY --from=build_env /app /app
 

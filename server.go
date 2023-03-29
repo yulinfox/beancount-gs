@@ -49,6 +49,7 @@ func RegisterRouter(router *gin.Engine) {
 	})
 	router.StaticFS("/web", http.Dir("./public"))
 	router.GET("/api/version", service.QueryVersion)
+	router.GET("/api/pass", service.GetPassForClient)
 	router.POST("/api/check", service.CheckBeancount)
 	router.GET("/api/config", service.QueryServerConfig)
 	router.POST("/api/config", service.UpdateServerConfig)
